@@ -19,22 +19,22 @@ def initialize_glee(glee_config=GLEE_CONFIG_PATH,
     add_deeplab_config(cfg_swin)
     add_glee_config(cfg_swin)
     conf_files_swin = glee_config
-    checkpoints_swin = torch.load(glee_checkpoint) 
+    checkpoints_swin = torch.load(glee_checkpoint)
     cfg_swin.merge_from_file(conf_files_swin)
     GLEEmodel_swin = GLEE_Model(cfg_swin, None, device, None, True).to(device)
     GLEEmodel_swin.load_state_dict(checkpoints_swin, strict=False)
     GLEEmodel_swin.eval()
     return GLEEmodel_swin
 
-# prompt_mode="categories", 
+# prompt_mode="categories",
 # results_select=["box", "mask", "name", "score"],
 
-def glee_segmentation(img, 
-                      GLEEmodel, 
+def glee_segmentation(img,
+                      GLEEmodel,
                       custom_category=CATEGORIES,
                       num_inst_select=15,
                       threshold_select=0.2,
-                      device="cuda:0"):        
+                      device="cuda:0"):
     pixel_mean = torch.Tensor([123.675, 116.28, 103.53]).to(device).view(3, 1, 1)
     pixel_std = torch.Tensor([58.395, 57.12, 57.375]).to(device).view(3, 1, 1)
     normalizer = lambda x: (x - pixel_mean) / pixel_std
@@ -66,7 +66,7 @@ def glee_segmentation(img,
     topk_indices = topk_indices[valid]
     scores_per_image = scores_per_image[valid]
     pred_class = mask_cls[topk_indices].max(-1)[1].tolist()
-    if len(pred_class) == 0: 
+    if len(pred_class) == 0:
         return [], [], [], []
     mask_pred = mask_pred[topk_indices]
     bbox_pred = bbox_pred[topk_indices].cpu().numpy()
@@ -82,7 +82,7 @@ def visualize_segmentation(image,classes,masks):
     for cls,mask in zip(classes,masks):
         if len(np.unique(mask)) != 2: continue
         copy_image[np.where(mask == 1)] = d3_40_colors_rgb[label_classes.tolist().index(cls)]
-        x, y = int(np.mean(np.where(mask)[1])), int(np.mean(np.where(mask)[0])) 
+        x, y = int(np.mean(np.where(mask)[1])), int(np.mean(np.where(mask)[0]))
         cv2.putText(copy_image, str(cls), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
     ret_image = cv2.addWeighted(image,0.2,copy_image,0.8,0)
     return ret_image
@@ -99,4 +99,3 @@ def visualize_detection(image,classes,bboxes):
 
 
 
-    

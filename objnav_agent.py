@@ -26,7 +26,7 @@ class HM3D_Objnav_Agent:
             return "Find the <%s>."%"television_set"
         else:
             return "Find the <%s>."%object_goal
-    
+
     def reset_debug_probes(self):
         self.rgb_trajectory = []
         self.depth_trajectory = []
@@ -36,7 +36,7 @@ class HM3D_Objnav_Agent:
         self.gpt_trajectory = []
         self.gptv_trajectory = []
         self.panoramic_trajectory = []
-        
+
         self.obstacle_affordance_trajectory = []
         self.semantic_affordance_trajectory = []
         self.history_affordance_trajectory = []
@@ -51,8 +51,8 @@ class HM3D_Objnav_Agent:
         self.mapper.reset(self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation)
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
-        self.reset_debug_probes()     
-       
+        self.reset_debug_probes()
+
     def rotate_panoramic(self,rotate_times = 12):
         self.temporary_pcd = []
         self.temporary_images = []
@@ -63,7 +63,7 @@ class HM3D_Objnav_Agent:
             self.temporary_pcd.append(self.mapper.current_pcd)
             self.temporary_images.append(self.rgb_trajectory[-1])
             self.obs = self.env.step(3)
-            
+
     def concat_panoramic(self,images):
         try:
             height,width = images[0].shape[0],images[0].shape[1]
@@ -77,19 +77,19 @@ class HM3D_Objnav_Agent:
                 col = ((i%6)//2)
                 copy_images[i] = cv2.putText(copy_images[i],"Direction %d"%i,(100,100),cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 6, cv2.LINE_AA)
                 background_image[10*(row+1)+row*height:10*(row+1)+row*height+height:,col*width + col * 10:col*width+col*10+width,:] = copy_images[i]
-                
+
         return background_image
-    
+
     def update_trajectory(self):
         self.episode_steps += 1
         self.metrics = self.env.get_metrics()
         self.rgb_trajectory.append(cv2.cvtColor(self.obs['rgb'],cv2.COLOR_BGR2RGB))
         self.depth_trajectory.append((self.obs['depth']/5.0 * 255.0).astype(np.uint8))
-        
+
         topdown_image = cv2.cvtColor(colorize_draw_agent_and_fit_to_height(self.metrics['top_down_map'],1024),cv2.COLOR_BGR2RGB)
         topdown_image = cv2.putText(topdown_image,'Success:%.2f,SPL:%.2f,SoftSPL:%.2f,DTS:%.2f'%(self.metrics['success'],self.metrics['spl'],self.metrics['soft_spl'],self.metrics['distance_to_goal']),(0,100),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2,cv2.LINE_AA)
         self.topdown_trajectory.append(topdown_image)
-        
+
         self.position = self.env.sim.get_agent_state().sensor_states['rgb'].position
         self.rotation = self.env.sim.get_agent_state().sensor_states['rgb'].rotation
 
@@ -100,13 +100,13 @@ class HM3D_Objnav_Agent:
         cv2.imwrite("monitor-rgb.jpg",self.rgb_trajectory[-1])
         cv2.imwrite("monitor-depth.jpg",self.depth_trajectory[-1])
         cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
-            
+
     def save_trajectory(self,dir="./tmp_objnav/"):
         import imageio
         import os
         os.makedirs(dir)
 
-        self.mapper.save_pointcloud_debug(dir) 
+        self.mapper.save_pointcloud_debug(dir)
         fps_writer = imageio.get_writer(dir+"fps.mp4", fps=4)
         dps_writer = imageio.get_writer(dir+"depth.mp4", fps=4)
         seg_writer = imageio.get_writer(dir+"segmentation.mp4", fps=4)
@@ -136,7 +136,7 @@ class HM3D_Objnav_Agent:
         dps_writer.close()
         seg_writer.close()
         metric_writer.close()
-    
+
     def query_chainon(self):
         semantic_clue = {'observed object':self.observed_objects}
         query_content = "<Navigation Instruction>:{}, <Previous Plan>:{}, <Semantic Clue>:{}".format(self.instruct_goal,"{" + self.trajectory_summary + "}",semantic_clue)
@@ -158,7 +158,7 @@ class HM3D_Objnav_Agent:
         else:
             self.trajectory_summary = self.trajectory_summary + '-' + str(answer['Action']) + '-' + str(answer['Landmark'])
         return answer
-    
+
     def query_gpt4v(self):
         images = self.temporary_images
         inference_image = self.concat_panoramic(images)
@@ -181,7 +181,7 @@ class HM3D_Objnav_Agent:
             return answer
         except:
             return np.random.randint(0,12)
-    
+
     def make_plan(self,rotate=True,failed=False):
         if rotate == True:
             self.rotate_panoramic()
@@ -195,7 +195,7 @@ class HM3D_Objnav_Agent:
         if self.affordance_pcd.max() == 0:
             self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=failed)
             self.found_goal = False
-            
+
         self.affordance_map,self.colored_affordance_map = project_costmap(self.mapper.navigable_pcd,self.affordance_pcd,self.mapper.grid_resolution)
         self.target_point = self.mapper.navigable_pcd.point.positions[self.affordance_pcd.argmax()].cpu().numpy()
         self.plan_position = self.mapper.current_position.copy()
@@ -206,7 +206,7 @@ class HM3D_Objnav_Agent:
         if len(self.path) == 0:
             self.waypoint = self.mapper.navigable_pcd.point.positions.cpu().numpy()[np.argmax(self.affordance_pcd)]
             self.waypoint[2] = self.mapper.current_position[2]
-        elif len(self.path) < 5: 
+        elif len(self.path) < 5:
             self.waypoint = self.path[-1]
             self.waypoint[2] = self.mapper.current_position[2]
         else:
@@ -219,7 +219,7 @@ class HM3D_Objnav_Agent:
         self.history_affordance_trajectory.append(self.history_afford)
         self.action_affordance_trajectory.append(self.action_afford)
         self.gpt4v_affordance_trajectory.append(self.gpt4v_afford)
-    
+
     def step(self):
         to_target_distance = np.sqrt(np.sum(np.square(self.mapper.current_position - self.waypoint)))
         if to_target_distance < 0.6 and len(self.path) > 0:
@@ -249,4 +249,4 @@ class HM3D_Objnav_Agent:
         if not self.env.episode_over:
             self.obs = self.env.step(act)
             self.update_trajectory()
-       
+
