@@ -37,12 +37,24 @@ if __name__ == "__main__":
     evaluation_metrics = []
     for i in tqdm(range(args.eval_episodes)):
         habitat_agent.reset()
-        habitat_agent.make_plan()
+        habitat_agent.make_plan_mod(idx=i)
+        print("----------------------------------------------------")
+        print(habitat_agent.current_node, habitat_agent.mapper.graph.nodes[habitat_agent.current_node].position)
+        print(habitat_agent.env.sim.get_agent_state().sensor_states['rgb'].position)
+        print("----------------------------------------------------")
+        # breakpoint()
         while not habitat_env.episode_over and habitat_agent.episode_steps < 495:
-            habitat_agent.step()
+            habitat_agent.step_mod(idx=i)
+
+            print("----------------------------------------------------")
+            print(habitat_agent.current_node, habitat_agent.mapper.graph.nodes[habitat_agent.current_node].position)
+            print(habitat_agent.env.sim.get_agent_state().sensor_states['rgb'].position)
+            print("----------------------------------------------------")
+
         habitat_agent.save_trajectory("./tmp/episode-%d/"%i)
         evaluation_metrics.append({'success':habitat_agent.metrics['success'],
                                 'spl':habitat_agent.metrics['spl'],
                                 'distance_to_goal':habitat_agent.metrics['distance_to_goal'],
                                 'object_goal':habitat_agent.instruct_goal})
         write_metrics(evaluation_metrics)
+        exit(0)

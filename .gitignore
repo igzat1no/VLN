@@ -1,5 +1,6 @@
-./tmp
 *.pth
 *.pyc
-**/__pycache__
-*/__pycache__/*
+__pycache__/
+objnav_hm3d.csv
+*.jpg
+tmp*/
