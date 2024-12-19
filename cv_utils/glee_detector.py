@@ -4,7 +4,7 @@ from thirdparty.GLEE.glee.config import add_glee_config
 from habitat_sim.utils.common import d3_40_colors_rgb
 from constants import *
 from detectron2.config import get_cfg
-from .object_list import categories as CATEGORIES
+from .new_object_list import categories as CATEGORIES
 import torch
 import torch.nn.functional as F
 import torchvision

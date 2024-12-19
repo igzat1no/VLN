@@ -1,0 +1,459 @@
+accordion	2	5.26%
+aeroplane	597	17.41%
+air_conditioner	5	2.68%
+antenna	2	0.80%
+artillery	1	3.36%
+ashtray	18	1.11%
+atrium	1	13.64%
+baby_carriage	13	12.28%
+bag	319	3.18%
+ball	25	2.12%
+balloon	18	2.88%
+bamboo_weaving	1	12.78%
+barrel	3	3.58%
+baseball_bat	1	1.05%
+basket	89	5.70%
+basketball_backboard	6	5.37%
+bathtub	5	36.08%
+bed	120	28.08%
+bedclothes	296	27.01%
+beer	1	2.41%
+bell	2	1.24%
+bench	119	5.49%
+bicycle	503	17.20%
+binoculars	0
+bird	664	12.36%
+bird_cage	21	44.05%
+bird_feeder	14	18.47%
+bird_nest	6	21.69%
+blackboard	2	12.70%
+board	137	9.67%
+boat	466	16.67%
+bone	3	2.55%
+book	416	3.80%
+bottle	821	7.35%
+bottle_opener	1	0.61%
+bowl	137	2.57%
+box	434	5.16%
+bracelet	1	0.76%
+brick	9	4.38%
+bridge	31	10.39%
+broom	5	6.75%
+brush	120	10.28%
+bucket	175	2.73%
+building	3064	20.22%
+bus	399	32.86%
+cabinet	536	13.62%
+cabinet_door	1	5.84%
+cage	29	32.76%
+cake	2	8.76%
+calculator	1	1.30%
+calendar	15	3.30%
+camel	0
+camera	52	1.80%
+camera_lens	0
+can	78	2.24%
+candle	43	1.04%
+candle_holder	29	0.93%
+cap	16	3.45%
+car	1273	19.45%
+card	11	3.41%
+cart	11	6.56%
+case	91	4.12%
+casette_recorder	1	1.82%
+cash_register	1	0.88%
+cat	1006	33.30%
+cd	45	3.33%
+cd_player	1	1.35%
+ceiling	586	10.00%
+cell_phone	43	0.49%
+cello	4	15.31%
+chain	10	1.52%
+chair	1357	11.87%
+chessboard	2	1.37%
+chicken	0
+chopstick	8	1.12%
+clip	1	0.47%
+clippers	2	9.44%
+clock	61	0.99%
+closet	1	27.69%
+cloth	877	8.96%
+clothes_tree	0
+coffee	4	0.59%
+coffee_machine	2	1.41%
+comb	3	0.80%
+computer	118	8.21%
+concrete	9	6.79%
+cone	30	1.32%
+container	61	4.34%
+control_booth	0
+controller	3	4.67%
+cooker	0
+copying_machine	0
+coral	0
+cork	0
+corkscrew	0
+counter	31	11.19%
+court	2	14.94%
+cow	256	22.98%
+crabstick	1	2.44%
+crane	12	0.56%
+crate	2	0.74%
+cross	3	0.23%
+crutch	2	0.52%
+cup	432	2.46%
+curtain	381	11.51%
+cushion	75	12.60%
+cutting_board	3	2.50%
+dais	1	10.10%
+disc	2	2.49%
+disc_case	16	4.96%
+dishwasher	0
+dock	3	10.26%
+dog	1204	25.23%
+dolphin	0
+door	455	10.01%
+drainer	1	0.09%
+dray	1	10.38%
+drink_dispenser	1	1.92%
+drinking_machine	1	7.36%
+drop	0
+drug	1	1.52%
+drum	9	8.77%
+drum_kit	8	7.93%
+duck	15	8.21%
+dumbbell	0
+earphone	8	1.21%
+earrings	1	1.07%
+egg	3	6.92%
+electric_fan	11	2.57%
+electric_iron	2	2.07%
+electric_pot	1	2.02%
+electric_saw	1	3.29%
+electronic_keyboard	0
+engine	2	3.94%
+envelope	0
+equipment	27	7.52%
+escalator	0
+exhibition_booth	2	17.59%
+extinguisher	6	0.95%
+eyeglass	15	2.72%
+fan	40	2.05%
+faucet	4	2.27%
+fax_machine	1	2.58%
+fence	1021	10.79%
+ferris_wheel	1	10.09%
+fire_extinguisher	2	0.75%
+fire_hydrant	2	4.74%
+fire_place	41	9.53%
+fish	7	4.60%
+fish_tank	3	25.04%
+fishbowl	1	18.00%
+fishing_net	1	7.74%
+fishing_pole	1	0.21%
+flag	100	2.05%
+flagstaff	3	1.58%
+flame	0
+flashlight	2	0.38%
+floor	1895	16.07%
+flower	190	7.67%
+fly	1	0.43%
+foam	0
+food	285	5.16%
+footbridge	1	10.82%
+forceps	0
+fork	104	0.63%
+forklift	0
+fountain	1	1.40%
+fox	0
+frame	17	5.86%
+fridge	69	10.07%
+frog	1	0.70%
+fruit	2	0.77%
+funnel	1	0.37%
+furnace	2	31.60%
+game_controller	4	0.66%
+game_machine	3	13.31%
+gas_cylinder	0
+gas_hood	0
+gas_stove	0
+gift_box	2	10.96%
+glass	21	5.24%
+glass_marble	1	8.14%
+globe	0
+glove	6	4.34%
+goal	4	10.04%
+grandstand	30	18.55%
+grass	2742	23.28%
+gravestone	0
+ground	2987	20.98%
+guardrail	35	6.09%
+guitar	53	4.83%
+gun	2	1.07%
+hammer	1	0.08%
+hand_cart	11	4.87%
+handle	2	4.16%
+handrail	7	3.75%
+hanger	3	0.66%
+hard_disk_drive	0
+hat	27	4.07%
+hay	3	21.08%
+headphone	7	0.49%
+heater	4	8.10%
+helicopter	3	12.77%
+helmet	62	2.32%
+holder	2	2.23%
+hook	2	0.61%
+horse	429	22.31%
+horse-drawn_carriage	25	12.70%
+hot-air_balloon	1	84.05%
+hydrovalve	0
+ice	6	31.35%
+inflator_pump	0
+ipod	15	0.75%
+iron	2	2.15%
+ironing_board	1	9.63%
+jar	18	2.80%
+kart	1	16.90%
+kettle	1	1.96%
+key	4	1.86%
+keyboard	140	4.69%
+kitchen_range	12	7.54%
+kite	1	0.26%
+knife	92	0.61%
+knife_block	2	0.30%
+ladder	12	3.91%
+ladder_truck	1	0.84%
+ladle	1	2.83%
+laptop	75	10.55%
+leaves	7	33.39%
+lid	1	1.37%
+life_buoy	2	14.83%
+light	908	1.18%
+light_bulb	1	0.68%
+lighter	5	0.21%
+line	1	0.14%
+lion	0
+lobster	0
+lock	1	0.15%
+machine	0
+mailbox	3	0.39%
+mannequin	1	11.90%
+map	3	32.42%
+mask	0
+mat	35	11.11%
+match_book	1	2.29%
+mattress	3	1.72%
+menu	24	4.34%
+metal	216	4.28%
+meter_box	1	3.43%
+microphone	44	0.71%
+microwave	26	3.61%
+mirror	81	5.60%
+missile	1	5.71%
+model	1	27.81%
+money	1	6.08%
+monkey	1	2.75%
+mop	3	0.66%
+motorbike	471	24.63%
+mountain	728	10.75%
+mouse	122	0.43%
+mouse_pad	50	3.58%
+musical_instrument	7	11.16%
+napkin	120	2.60%
+net	3	6.81%
+newspaper	30	3.99%
+oar	10	5.48%
+ornament	2	0.79%
+outlet	26	0.48%
+oven	8	10.24%
+oxygen_bottle	1	4.21%
+pack	287	3.18%
+pan	10	3.51%
+paper	298	4.02%
+paper_box	4	0.99%
+paper_cutter	6	6.75%
+parachute	4	3.45%
+parasol	17	4.14%
+parterre	1	14.77%
+patio	1	23.16%
+pelage	0
+pen	44	0.33%
+pen_container	8	1.14%
+pencil	2	0.65%
+person	3919	20.64%
+photo	3	2.69%
+piano	4	8.83%
+picture	674	5.70%
+pig	1	1.41%
+pillar	8	3.16%
+pillow	55	11.18%
+pipe	16	2.01%
+pitcher	3	3.36%
+plant	106	14.52%
+plastic	11	6.37%
+plate	346	4.44%
+platform	154	15.39%
+player	24	2.37%
+playground	1	5.70%
+pliers	1	0.39%
+plume	1	1.76%
+poker	1	0.73%
+poker_chip	1	7.81%
+pole	1555	1.53%
+pool_table	1	29.81%
+postcard	1	1.72%
+poster	185	6.82%
+pot	310	3.08%
+pottedplant	625	11.89%
+printer	34	2.92%
+projector	2	0.52%
+pumpkin	2	7.72%
+rabbit	1	0.14%
+racket	1	4.75%
+radiator	27	3.93%
+radio	6	2.22%
+rail	31	6.12%
+rake	1	0.26%
+ramp	2	3.15%
+range_hood	8	3.98%
+receiver	13	1.12%
+recorder	2	23.21%
+recreational_machines	1	61.90%
+remote_control	67	0.93%
+road	1102	21.97%
+robot	0
+rock	396	10.72%
+rocket	0
+rocking_horse	1	0.74%
+rope	507	1.35%
+rug	181	20.69%
+ruler	1	1.61%
+runway	2	11.72%
+saddle	85	1.95%
+sand	46	36.43%
+saw	1	1.53%
+scale	2	3.64%
+scanner	1	1.43%
+scissors	5	0.72%
+scoop	1	0.04%
+screen	4	13.73%
+screwdriver	2	0.32%
+sculpture	73	7.67%
+scythe	0
+sewer	2	26.70%
+sewing_machine	3	1.06%
+shed	2	2.25%
+sheep	297	21.95%
+shell	3	2.43%
+shelves	448	7.64%
+shoe	74	2.68%
+shopping_cart	2	4.54%
+shovel	2	1.07%
+sidecar	2	15.60%
+sidewalk	382	8.65%
+sign	592	2.32%
+signal_light	43	0.98%
+sink	24	15.51%
+skateboard	1	0.81%
+ski	3	5.71%
+sky	3231	26.77%
+sled	2	4.28%
+slippers	1	4.63%
+smoke	56	10.42%
+snail	0
+snake	3	15.25%
+snow	173	28.71%
+snowmobiles	1	16.52%
+sofa	831	25.31%
+spanner	0
+spatula	1	1.36%
+speaker	118	3.48%
+speed_bump	0
+spice_container	23	0.99%
+spoon	75	0.51%
+sprayer	0
+squirrel	1	6.33%
+stage	16	49.30%
+stair	36	21.55%
+stapler	3	0.79%
+stick	4	0.28%
+sticky_note	2	1.64%
+stone	0
+stool	9	3.18%
+stove	10	2.22%
+straw	6	0.47%
+stretcher	0
+sun	1	3.99%
+sunglass	4	0.86%
+sunshade	3	5.83%
+surveillance_camera	1	0.16%
+swan	1	0.22%
+sweeper	0
+swim_ring	2	9.90%
+swimming_pool	1	3.01%
+swing	1	2.09%
+switch	5	0.51%
+table	1566	9.76%
+tableware	3	4.19%
+tank	2	2.63%
+tap	12	2.30%
+tape	9	0.51%
+tarp	2	43.12%
+telephone	71	1.72%
+telephone_booth	0
+tent	36	12.26%
+tire	35	3.29%
+toaster	5	1.70%
+toilet	2	12.68%
+tong	1	1.80%
+tool	3	3.06%
+toothbrush	1	0.80%
+towel	3	18.69%
+toy	356	5.21%
+toy_car	2	30.91%
+track	356	9.15%
+train	465	28.46%
+trampoline	1	15.35%
+trash_bin	91	3.03%
+tray	9	5.46%
+tree	3232	18.02%
+tricycle	0
+tripod	2	8.27%
+trophy	2	1.04%
+truck	126	6.39%
+tube	3	3.82%
+turtle	1	0.98%
+tvmonitor	536	15.32%
+tweezers	0
+typewriter	1	3.40%
+umbrella	13	4.32%
+unknown	3734	8.99%
+vacuum_cleaner	6	4.15%
+vending_machine	2	23.66%
+video_camera	11	1.94%
+video_game_console	11	1.77%
+video_player	37	2.97%
+video_tape	3	4.09%
+violin	4	4.37%
+wakeboard	0
+wall	2794	22.23%
+wallet	7	1.26%
+wardrobe	2	18.93%
+washing_machine	17	15.58%
+watch	6	0.81%
+water	899	32.68%
+water_dispenser	5	3.52%
+water_pipe	3	2.94%
+water_skate_board	1	0.60%
+watermelon	2	7.00%
+whale	0
+wharf	0
+wheel	8	17.21%
+wheelchair	5	3.78%
+window	756	11.07%
+window_blinds	1	1.57%
+wineglass	197	2.95%
+wire	113	1.17%
+wood	462	8.29%
+wool

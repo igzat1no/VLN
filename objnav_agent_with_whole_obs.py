@@ -36,6 +36,9 @@ class HM3D_Objnav_Agent:
         self.topdown_trajectory = []
         self.segmentation_trajectory = []
 
+        self.position_trajectory = []
+        self.rotation_trajectory = []
+
         self.gpt_trajectory = []
         self.gptv_trajectory = []
         self.panoramic_trajectory = []
@@ -107,31 +110,71 @@ class HM3D_Objnav_Agent:
         self.position = self.env.sim.get_agent_state().sensor_states['rgb'].position
         self.rotation = self.env.sim.get_agent_state().sensor_states['rgb'].rotation
 
+        self.position_trajectory.append(self.position)
+        self.rotation_trajectory.append(self.rotation)
+
         self.mapper.update(self.rgb_trajectory[-1], self.obs['depth'], self.position, self.rotation)
-        # self.segmentation_trajectory.append(self.mapper.segmentation)
-        # self.observed_objects = self.mapper.get_appeared_objects()
+        self.segmentation_trajectory.append(self.mapper.segmentation)
+        self.observed_objects = self.mapper.get_appeared_objects()
 
         cv2.imwrite("monitor-rgb.jpg", self.rgb_trajectory[-1])
         cv2.imwrite("monitor-depth.jpg", self.depth_trajectory[-1])
-        # cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
+        cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
+
+        breakpoint()
 
     def save_trajectory(self, dir="./tmp_objnav/"):
         import imageio
         import os
         os.makedirs(dir, exist_ok=True)
 
-        self.mapper.save_pointcloud_debug(dir)
-        fps_writer = imageio.get_writer(dir + "fps.mp4", fps=4)
-        dps_writer = imageio.get_writer(dir + "depth.mp4", fps=4)
+        for i in range(len(self.rgb_trajectory)):
+            rgb = self.rgb_trajectory[i]
+            # rgb = cv2.cvtColor(self.rgb_trajectory[i], cv2.COLOR_BGR2RGB)
+            cv2.imwrite(dir + "%d-rgb.jpg" % i, rgb)
+            dep = self.depth_trajectory[i]
+            dep = np.concatenate([dep, dep, dep], axis=2)
+            cv2.imwrite(dir + "%d-depth.jpg" % i, dep)
+
+        # save position and rotation
+        with open(dir + "position.txt", 'w') as file:
+            for pos in self.position_trajectory:
+                file.write(str(pos) + "\n")
+        with open(dir + "rotation.txt", 'w') as file:
+            for rot in self.rotation_trajectory:
+                file.write(str(rot) + "\n")
+
+        exit(0)
+
+
+        # self.mapper.save_pointcloud_debug(dir)
+        total_writer = imageio.get_writer(dir + "total.mp4", fps=4)
+        # fps_writer = imageio.get_writer(dir + "fps.mp4", fps=4)
+        # dps_writer = imageio.get_writer(dir + "depth.mp4", fps=4)
         # seg_writer = imageio.get_writer(dir+"segmentation.mp4", fps=4)
-        metric_writer = imageio.get_writer(dir + "metrics.mp4", fps=4)
-        # for i,img,dep,seg,met in zip(np.arange(len(self.rgb_trajectory)),self.rgb_trajectory,self.depth_trajectory,self.segmentation_trajectory,self.topdown_trajectory):
-        for i, img, dep, met in zip(np.arange(len(self.rgb_trajectory)), self.rgb_trajectory,
-                                    self.depth_trajectory, self.topdown_trajectory):
-            fps_writer.append_data(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            dps_writer.append_data(dep)
+        # metric_writer = imageio.get_writer(dir + "metrics.mp4", fps=4)
+        for i,img,dep,seg,met in zip(np.arange(len(self.rgb_trajectory)),self.rgb_trajectory,self.depth_trajectory,self.segmentation_trajectory,self.topdown_trajectory):
+        # for i, img, dep, met in zip(np.arange(len(self.rgb_trajectory)), self.rgb_trajectory,
+                                    # self.depth_trajectory, self.topdown_trajectory):
+            # concat to nwimg
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            dep = np.concatenate([dep, dep, dep], axis=2)
+            seg = cv2.cvtColor(seg, cv2.COLOR_BGR2RGB)
+            met = cv2.cvtColor(met, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (640, 480))
+            dep = cv2.resize(dep, (640, 480))
+            seg = cv2.resize(seg, (640, 480))
+            met = cv2.resize(met, (640, 480))
+            nwimg = np.zeros((960, 1280, 3), np.uint8)
+            nwimg[0:480, 0:640, :] = img
+            nwimg[0:480, 640:1280, :] = dep
+            nwimg[480:960, 0:640, :] = seg
+            nwimg[480:960, 640:1280, :] = met
+            total_writer.append_data(nwimg)
+            # fps_writer.append_data(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            # dps_writer.append_data(dep)
             # seg_writer.append_data(cv2.cvtColor(seg,cv2.COLOR_BGR2RGB))
-            metric_writer.append_data(cv2.cvtColor(met, cv2.COLOR_BGR2RGB))
+            # metric_writer.append_data(cv2.cvtColor(met, cv2.COLOR_BGR2RGB))
 
         # for index,pano_img in enumerate(self.panoramic_trajectory):
         #     cv2.imwrite(dir+"%d-pano.jpg"%index,pano_img)
@@ -148,10 +191,11 @@ class HM3D_Objnav_Agent:
         #     o3d.io.write_point_cloud(dir+"gpt4v-afford-%d-plan.ply"%i,gafford)
         #     o3d.io.write_point_cloud(dir+"obstacle-afford-%d-plan.ply"%i,oafford)
 
-        fps_writer.close()
-        dps_writer.close()
+        total_writer.close()
+        # fps_writer.close()
+        # dps_writer.close()
         # seg_writer.close()
-        metric_writer.close()
+        # metric_writer.close()
 
     def query_chainon(self):
         semantic_clue = {'observed object': self.observed_objects}
@@ -303,8 +347,8 @@ class HM3D_Objnav_Agent:
         save_pcd.colors = o3d.utility.Vector3dVector(current_pcd_to_save.point.colors.cpu().numpy())
         step = self.episode_steps
         import os
-        os.makedirs(f'tmp_with_whole_obs/episode-{idx}', exist_ok=True)
-        o3d.io.write_point_cloud(f'tmp_with_whole_obs/episode-{idx}/obs_{step}.ply', save_pcd)
+        os.makedirs(f'tmp_imgs/episode-{idx}', exist_ok=True)
+        o3d.io.write_point_cloud(f'tmp_imgs/episode-{idx}/obs_{step}.ply', save_pcd)
 
         print("\n \n --------------------------------------------------")
         print(f'Current step: {step}')
