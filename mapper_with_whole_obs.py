@@ -4,20 +4,21 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import open3d as o3d
-from constants import *
-from cv_utils.image_percevior import GLEE_Percevior
 from habitat_sim.utils.common import d3_40_colors_rgb
 from lavis.models import load_model_and_preprocess
+from matplotlib import colormaps
+from matplotlib.path import Path
+from PIL import Image
+from scipy.spatial import KDTree
+
+from constants import *
+from cv_utils.image_perceiver import *
 from mapping_utils.geometry import *
 from mapping_utils.path_planning import *
 from mapping_utils.preprocess import *
 from mapping_utils.projection import *
 from mapping_utils.representation import *
 from mapping_utils.transform import *
-from matplotlib import colormaps
-from matplotlib.path import Path
-from PIL import Image
-from scipy.spatial import KDTree
 
 
 class Instruct_Mapper:
@@ -32,50 +33,215 @@ class Instruct_Mapper:
                  translation_func=habitat_translation,
                  rotation_func=habitat_rotation,
                  rotate_axis=[0, 1, 0],
+                 perceiver="glee",
                  device='cuda:0'):
         self.device = device
+        self.pcd_device = o3d.core.Device(device.upper())
+
         self.camera_intrinsic = camera_intrinsic
         self.pcd_resolution = pcd_resolution
         self.grid_resolution = grid_resolution
         self.grid_size = grid_size
+
         self.floor_height = floor_height
         self.ceiling_height = ceiling_height
+
         self.translation_func = translation_func
         self.rotation_func = rotation_func
         self.rotate_axis = np.array(rotate_axis)
-        self.object_percevior = GLEE_Percevior(device=device)
 
-        self.representation = our_Graph()
-        self.current_obj_indices = []
+        classes = []
+        for obj in categories:
+            classes.append(obj['name'])
+        print("number of classes: ", len(classes))
 
-        self.pcd_device = o3d.core.Device(device.upper())
-        self.process_obs_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
-        self.process_nav_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
+        if perceiver == "glee":
+            self.object_perceiver = GLEE_Perceiver(classes=classes, device=device)
+        elif perceiver == "ramsam":
+            self.object_perceiver = RAMDINOSAM_Perceiver(classes=classes, device=device)
+        elif perceiver == "dinosam":
+            self.object_perceiver = DINOSAM_Perceiver(classes=classes, device=device)
+        elif perceiver == "mmdinosam":
+            self.object_perceiver = MMDINOSAM_Perceiver(classes=classes, device=device)
+        else:
+            raise NotImplementedError("Image perceiver not implemented")
 
-    def reset(self, position, rotation):
+    def initialize(self, position, rotation):
         self.update_iterations = 0
         self.initial_position = self.translation_func(position)
         self.current_position = self.translation_func(position) - self.initial_position
         self.current_rotation = self.rotation_func(rotation)
+
         self.scene_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
         self.navigable_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
         self.object_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
-        self.object_entities = []
-        self.trajectory_position = []
-
-        self.representation = our_Graph()
-        # self.nodes = np.array([])
-        # self.nodes_state = np.array([])
-
         self.process_obs_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
         self.process_nav_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
+
+        # graph representation
+        self.nodes = []
+        self.nodes_pos_to_idx = {}
+        self.node_cnt = 0
+        self.neighbors = []
+        self.current_node = self.add_node(self.current_position)
+
+        self.objects = []
+        # each object: pointcloud, tag, confidence, description
+        self.trajectory_nodes = []
+        self.trajectory_position = []
+        self.current_obj_indices = []
+
+    def add_node(self, position):
+        print("---------- adding node ----------", position)
+        position = position.copy()
+        node = our_Node(None, None, position, None, self.node_cnt)
+        self.nodes.append(node)
+        self.node_cnt += 1
+        self.neighbors.append([])
+        self.nodes_pos_to_idx[tuple(position)] = self.node_cnt - 1
+        return self.node_cnt - 1
+
+    def visit_node(self, node_pos):
+        print("---------- visiting node ----------", node_pos)
+        for key, value in self.nodes_pos_to_idx.items():
+            print(key, value)
+        node_indx = self.nodes_pos_to_idx[tuple(node_pos)]
+        self.nodes[node_indx].state = NodeState.EXPLORED
+
+    def add_edge(self, node1, node2):
+        node1 = node1.copy()
+        node2 = node2.copy()
+
+        node1 = self.find_closest_node(node1).position
+        node2 = self.find_closest_node(node2).position
+
+        node1_idx = self.nodes_pos_to_idx[tuple(node1)]
+        node2_idx = self.nodes_pos_to_idx[tuple(node2)]
+
+        self.neighbors[node1_idx].append(node2_idx)
+        self.neighbors[node2_idx].append(node1_idx)
+
+    def get_edges(self):
+        edges = []
+        for i in range(self.node_cnt):
+            for j in self.neighbors[i]:
+                if i < j:
+                    edges.append((i, j))
+        return edges
+
+    def update_obj(self, position, obj_indices):
+        node = self.find_closest_node(position)
+        node.update_obj(obj_indices)
+
+    def get_nodes_positions(self):
+        return np.array([node.position for node in self.nodes])
+
+    def get_nodes_states(self):
+        return np.array([node.state for node in self.nodes])
+
+    def find_closest_node(self, position):
+        dist = []
+        for node in self.nodes:
+            dist.append(np.linalg.norm(node.position[:2] - position[:2]))
+        dist = np.array(dist)
+        return self.nodes[np.argmin(dist)]
+
+    def find_closest_unexplored_node(self, node_pos):
+        # find the closet node to any given node in the graph, distance is the sum of edge weights
+        node = self.find_closest_node(node_pos)
+        node_indx = self.nodes_pos_to_idx[tuple(node.position)]
+        dist = np.full(self.node_cnt, np.inf)
+        dist[node_indx] = 0
+
+        pq = []
+        heapq.heappush(pq, (0, node_indx))
+        while pq:
+            current_dist, u = heapq.heappop(pq)
+            if self.nodes[u].state == NodeState.UNEXPLORED:
+                return self.nodes[u].position
+            for v in self.neighbors[u]:
+                alt = current_dist + np.linalg.norm(self.nodes[u].position[:2] - self.nodes[v].position[:2])
+                if alt < dist[v]:
+                    dist[v] = alt
+                    heapq.heappush(pq, (alt, v))
+        return None
+
+    def find_the_closest_path(self, start, end):
+        # Initialize distances and previous nodes
+        start = self.find_closest_node(start)
+        end = self.find_closest_node(end)
+
+        start_idx = self.nodes_pos_to_idx[tuple(start.position)]
+        end_idx = self.nodes_pos_to_idx[tuple(end.position)]
+
+        dist = np.full(self.node_cnt, np.inf)
+        prev = np.full(self.node_cnt, -1, dtype=int)
+        dist[start_idx] = 0
+
+        # Priority queue for Dijkstra's algorithm
+        pq = []
+        heapq.heappush(pq, (0, start_idx))  # (distance, node)
+
+        while pq:
+            current_dist, u_idx = heapq.heappop(pq)
+            u = self.nodes[u_idx]
+            # If we reach the end node, stop early
+            if u == end:
+                break
+
+            # Skip if the distance is not optimal
+            if current_dist > dist[u_idx]:
+                continue
+
+            # Iterate over neighbors
+            for v_idx in self.neighbors[u_idx]:
+                alt = dist[u_idx] + np.linalg.norm(self.nodes[u_idx].position[:2] - self.nodes[v_idx].position[:2])
+                if alt < dist[v_idx]:
+                    dist[v_idx] = alt
+                    prev[v_idx] = u_idx
+                    heapq.heappush(pq, (alt, v_idx))
+
+        # Reconstruct path from end to start
+        path = []
+        u = end
+        u_idx = self.nodes_pos_to_idx[tuple(u.position)]
+        while u_idx != -1:
+            path.append(self.nodes[u_idx].position)
+            u_idx = prev[u_idx]
+        path.reverse()
+
+        # If the path doesn't reach the start node, return an empty path
+        if tuple(path[0]) != tuple(start.position):
+            return []
+        return np.array(path)
+
+    def update_edges(self, point_cloud_position, current_pos):
+        current_node = self.find_closest_node(current_pos)
+
+        average_z = np.mean(point_cloud_position[:, 2])
+        point_cloud_position[:, 2] = np.ones_like(point_cloud_position[:, 2])*average_z
+        tree = KDTree(point_cloud_position)
+
+        for node in self.nodes:
+            pos_new = np.array([node.position[0], node.position[1], average_z])
+            indices = tree.query_ball_point(pos_new, 0.16)
+            local_density = len(indices)
+
+            if local_density > 15:
+                node_idx = self.nodes_pos_to_idx[tuple(node.position)]
+                if node_idx not in self.neighbors[self.nodes_pos_to_idx[tuple(current_node.position)]]:
+                    self.add_edge(current_node.position, node.position)
+
 
     def update(self, rgb, depth, position, rotation):
         self.current_position = self.translation_func(position) - self.initial_position
         self.current_rotation = self.rotation_func(rotation)
         self.current_depth = preprocess_depth(depth)
         self.current_rgb = preprocess_image(rgb)
+
+        self.trajectory_nodes.append(self.current_node)
         self.trajectory_position.append(self.current_position)
+
         # to avoid there is no valid depth value (especially in real-world)
         if np.sum(self.current_depth) > 0:
             camera_points, camera_colors = get_pointcloud_from_depth(
@@ -89,20 +255,20 @@ class Instruct_Mapper:
             return
 
         # semantic masking and project object mask to pointcloud
-        classes, masks, confidences, visualization = self.object_percevior.perceive(
+        classes, masks, confidences, visualization = self.object_perceiver.perceive(
             self.current_rgb)
         self.segmentation = visualization[0]
         current_object_entities = self.get_object_entities(self.current_depth, classes,
                                                            masks, confidences)
+
+        print("+++++++++++++++++++++ object entities")
+        for obj in current_object_entities:
+            print(obj.tag, obj.confidence)
         print("+++++++++++++++++++++")
-        for objs in current_object_entities:
-            print(objs["class"], objs["confidence"])
-        print()
-        self.object_entities, obj_indices = self.associate_object_entities(
-            self.object_entities, current_object_entities)
+
+        self.objects, obj_indices = self.associate_object_entities(
+            self.objects, current_object_entities)
         self.current_obj_indices += obj_indices
-        print("+++++++++++++++++++++")
-        print()
         self.object_pcd = self.update_object_pcd()
 
         # pointcloud update
@@ -175,8 +341,8 @@ class Instruct_Mapper:
         # save_pcd = o3d.geometry.PointCloud()
         # save_pcd.points = o3d.utility.Vector3dVector(self.navigable_pcd.point.positions.cpu().numpy())
         # save_pcd.colors = o3d.utility.Vector3dVector(self.navigable_pcd.point.colors.cpu().numpy())
-        # os.makedirs(f'tmp_imgs/episode-0', exist_ok=True)
-        # o3d.io.write_point_cloud(f'tmp_imgs/episode-0/navigable_{self.update_iterations}.ply', save_pcd)
+        # os.makedirs(f'debug/episode-0', exist_ok=True)
+        # o3d.io.write_point_cloud(f'debug/episode-0/navigable_{self.update_iterations}.ply', save_pcd)
 
         # interpolate_points = np.linspace(np.ones_like(current_navigable_position) * standing_position,
         #                                  current_navigable_position, 25).reshape(-1, 3)
@@ -216,9 +382,9 @@ class Instruct_Mapper:
 
     def update_object_pcd(self):
         object_pcd = o3d.geometry.PointCloud()
-        for entity in self.object_entities:
-            points = entity['pcd'].point.positions.cpu().numpy()
-            colors = entity['pcd'].point.colors.cpu().numpy()
+        for entity in self.objects:
+            points = entity.pointcloud.point.positions.cpu().numpy()
+            colors = entity.pointcloud.point.colors.cpu().numpy()
             new_pcd = o3d.geometry.PointCloud()
             new_pcd.points = o3d.utility.Vector3dVector(points)
             new_pcd.colors = o3d.utility.Vector3dVector(colors)
@@ -244,9 +410,10 @@ class Instruct_Mapper:
 
     def get_object_entities(self, depth, classes, masks, confidences):
         entities = []
-        exist_objects = np.unique([ent['class'] for ent in self.object_entities]).tolist()
+        exist_objects = np.unique([ent.tag for ent in self.objects]).tolist()
         for cls, mask, score in zip(classes, masks, confidences):
             if depth[mask > 0].min() < 1.0 and score < 0.5:
+                # filter out the objects that are close but with low confidence
                 continue
             if cls not in exist_objects:
                 exist_objects.append(cls)
@@ -264,7 +431,7 @@ class Instruct_Mapper:
             object_pcd = gpu_cluster_filter(object_pcd)
             if object_pcd.point.positions.shape[0] < 10:
                 continue
-            entity = {'class': cls, 'pcd': object_pcd, 'confidence': score}
+            entity = ObjectNode(object_pcd, cls, score)
             entities.append(entity)
         return entities
 
@@ -276,11 +443,11 @@ class Instruct_Mapper:
                 entity_indices.append(0)
                 continue
             overlap_score = []
-            eval_pcd = entity['pcd']
+            eval_pcd = entity.pointcloud
             for ref_entity in ref_entities:
                 if eval_pcd.point.positions.shape[0] == 0:
                     break
-                cdist = pointcloud_distance(eval_pcd, ref_entity['pcd'])
+                cdist = pointcloud_distance(eval_pcd, ref_entity.pointcloud)
                 overlap_condition = (cdist < 0.1)
                 nonoverlap_condition = overlap_condition.logical_not()
                 eval_pcd = eval_pcd.select_by_index(
@@ -291,17 +458,17 @@ class Instruct_Mapper:
             max_overlap_score = np.max(overlap_score)
             arg_overlap_index = np.argmax(overlap_score)
             if max_overlap_score < 0.25:
-                entity['pcd'] = eval_pcd
+                entity.pointcloud = eval_pcd
                 ref_entities.append(entity)
                 entity_indices.append(len(ref_entities) - 1)
             else:
                 argmax_entity = ref_entities[arg_overlap_index]
-                argmax_entity['pcd'] = gpu_merge_pointcloud(argmax_entity['pcd'],
-                                                            eval_pcd)
-                if argmax_entity['pcd'].point.positions.shape[0] < entity[
-                        'pcd'].point.positions.shape[0] or entity[
-                            'class'] in INTEREST_OBJECTS:
-                    argmax_entity['class'] = entity['class']
+                argmax_entity.pointcloud = gpu_merge_pointcloud(argmax_entity.pointcloud,
+                                                                eval_pcd)
+
+                if argmax_entity.pointcloud.point.positions.shape[0] < \
+                   entity.pointcloud.point.positions.shape[0] or entity.tag in INTEREST_OBJECTS:
+                    argmax_entity.tag = entity.tag
                 ref_entities[arg_overlap_index] = argmax_entity
                 entity_indices.append(arg_overlap_index)
         return ref_entities, entity_indices
@@ -500,7 +667,7 @@ class Instruct_Mapper:
         return color_affordance
 
     def get_appeared_objects(self):
-        return [entity['class'] for entity in self.object_entities]
+        return [entity.tag for entity in self.objects]
 
     def save_pointcloud_debug(self, path="./"):
         save_pcd = o3d.geometry.PointCloud()
@@ -545,7 +712,7 @@ class Instruct_Mapper:
 
         # save the nodes
         center_spheres = []
-        centers = self.representation.get_nodes_positions()
+        centers = self.get_nodes_positions()
         for center in centers:
             center[2] = self.floor_height
             sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.05)
@@ -576,7 +743,7 @@ class Instruct_Mapper:
             obj_centers.append(pos)
         num_obj = len(obj_centers)
 
-        for i in range(self.representation.node_cnt):
+        for i in range(self.node_cnt):
             center = centers[i]
             center[2] = self.floor_height
             obj_centers.append(center)
@@ -588,8 +755,8 @@ class Instruct_Mapper:
 
         edges = []
 
-        for i in range(self.representation.node_cnt):
-            node = self.representation.nodes[i]
+        for i in range(self.node_cnt):
+            node = self.nodes[i]
             center = node.position
             print("Node: ", i, " Center: ", center)
             for ind in node.objects:
@@ -607,7 +774,7 @@ class Instruct_Mapper:
         # save the self.nodes in the txt file
         np.savetxt(path + "nodes.txt", np.array(centers), fmt='%f')
 
-        edges = self.representation.get_edges()
+        edges = self.get_edges()
 
         line_set = o3d.geometry.LineSet()
         line_set.points = o3d.utility.Vector3dVector(centers)
@@ -684,8 +851,8 @@ class Instruct_Mapper:
 
         # check the visibility of the nodes in the graph
         if step != 12:
-            self.representation.update_edges(current_navigable_position,
-                                             self.current_position)
+            self.update_edges(current_navigable_position,
+                                self.current_position)
 
         # change the z value of the points to the mean of the floor points
         obstcale_pcd_points[:, 2] = np.ones_like(obstcale_pcd_points[:, 2]) * np.mean(
@@ -767,9 +934,9 @@ class Instruct_Mapper:
             save_pcd.points = o3d.utility.Vector3dVector(frontiers_to_save)
             save_pcd.paint_uniform_color([0, 1, 0])
             import os
-            os.makedirs(f'tmp_imgs/episode-{idx}', exist_ok=True)
-            o3d.io.write_point_cloud(
-                f'tmp_imgs/episode-{idx}/frontier_{step}.ply', save_pcd)
+            os.makedirs(f'debug/episode-{idx}', exist_ok=True)
+            o3d.io.write_point_cloud(f'debug/episode-{idx}/frontier_{step}.ply',
+                                     save_pcd)
 
         print("Current position:", standing_position)
         # print(len(current_navigable_position))
@@ -870,8 +1037,7 @@ class Instruct_Mapper:
                     current_frontier_centers)
 
                 o3d.io.write_line_set(
-                    f'tmp_imgs/episode-{idx}/line_set_{step}_cluster_{i}.ply',
-                    line_set)
+                    f'debug/episode-{idx}/line_set_{step}_cluster_{i}.ply', line_set)
 
                 center_idx_to_remove = []
                 for index1 in range(len(merged_frontier_centers)):
@@ -916,9 +1082,8 @@ class Instruct_Mapper:
         save_pcd.colors = o3d.utility.Vector3dVector(
             current_pcd_to_save.point.colors.cpu().numpy())
         import os
-        os.makedirs(f'tmp_imgs/episode-{idx}', exist_ok=True)
-        o3d.io.write_point_cloud(f'tmp_imgs/episode-{idx}/nav_{step}.ply',
-                                 save_pcd)
+        os.makedirs(f'debug/episode-{idx}', exist_ok=True)
+        o3d.io.write_point_cloud(f'debug/episode-{idx}/nav_{step}.ply', save_pcd)
 
         # for cluster in clusters:
         #     print(len(cluster.point.positions.cpu().numpy()))
@@ -932,7 +1097,7 @@ class Instruct_Mapper:
         centers_from_frontiers = np.array(centers_from_frontiers)
         centers_from_clusters = np.array(centers_from_clusters)
         valid_centers = []
-        if len(self.representation.nodes) == 0:
+        if self.node_cnt == 1:
             # in case the centers is empty
             print(len(centers_from_frontiers) + len(centers_from_clusters))
             if len(centers_from_frontiers) + len(centers_from_clusters) == 0:
@@ -948,9 +1113,9 @@ class Instruct_Mapper:
                     save_pcd.points = o3d.utility.Vector3dVector(frontiers_to_save)
                     save_pcd.paint_uniform_color([0, 1, 0])
                     import os
-                    os.makedirs(f'tmp_imgs/episode-{idx}', exist_ok=True)
+                    os.makedirs(f'debug/episode-{idx}', exist_ok=True)
                     o3d.io.write_point_cloud(
-                        f'tmp_imgs/episode-{idx}/frontier_{step}.ply', save_pcd)
+                        f'debug/episode-{idx}/frontier_{step}.ply', save_pcd)
 
                 # decide the max distance
                 if len(frontier_clusters) != 0:
@@ -1094,9 +1259,9 @@ class Instruct_Mapper:
                     save_pcd.colors = o3d.utility.Vector3dVector(
                         current_pcd_to_save.point.colors.cpu().numpy())
                     import os
-                    os.makedirs(f'tmp_imgs/episode-{idx}', exist_ok=True)
-                    o3d.io.write_point_cloud(
-                        f'tmp_imgs/episode-{idx}/nav_{step}.ply', save_pcd)
+                    os.makedirs(f'debug/episode-{idx}', exist_ok=True)
+                    o3d.io.write_point_cloud(f'debug/episode-{idx}/nav_{step}.ply',
+                                             save_pcd)
 
             # # calculate the distance between the current position and the centers
             # for center in centers:
@@ -1106,8 +1271,8 @@ class Instruct_Mapper:
             #         interpolate_points = np.linspace(self.current_position, center, 1).reshape(-1, 3)
             #         centers = np.concatenate((centers, interpolate_points), axis=0)
 
-            self.representation.add_node(self.current_position)
-            self.representation.visit_node(self.current_position)
+            # self.add_node(self.current_position)
+            # self.visit_node(self.current_position)
             # valid_centers.append(self.current_position)
 
             for center in centers_from_frontiers:
@@ -1121,13 +1286,14 @@ class Instruct_Mapper:
             valid_centers = np.array(valid_centers)
 
             for center in valid_centers:
-                self.representation.add_node(center)
-                self.representation.add_edge(self.current_position, center)
+                self.add_node(center)
+                print("here")
+                self.add_edge(self.current_position, center)
 
             # self.nodes_state = np.concatenate((np.array([1]), np.zeros(len(valid_centers)-1)), axis=0)
 
         else:
-            nodes_positions = self.representation.get_nodes_positions()
+            nodes_positions = self.get_nodes_positions()
             # print(f'Nodes positions: {nodes_positions}')
             for center in centers_from_frontiers:
                 distance = np.linalg.norm(nodes_positions[:, :2] - center[:2], axis=1)
@@ -1155,8 +1321,8 @@ class Instruct_Mapper:
             # print(valid_centers)
             if len(valid_centers) > 0:
                 for center in valid_centers:
-                    self.representation.add_node(center)
-                    self.representation.add_edge(self.current_position, center)
+                    self.add_node(center)
+                    self.add_edge(self.current_position, center)
 
                 # self.nodes = np.concatenate((self.nodes, np.asarray(valid_centers)), axis=0)
                 # # update the nodes_state
@@ -1178,8 +1344,8 @@ class Instruct_Mapper:
             combined_sphere = o3d.geometry.TriangleMesh()
             for sphere in center_spheres:
                 combined_sphere += sphere
-            o3d.io.write_triangle_mesh(
-                f'tmp_imgs/episode-{idx}/centers_{step}.ply', combined_sphere)
+            o3d.io.write_triangle_mesh(f'debug/episode-{idx}/centers_{step}.ply',
+                                       combined_sphere)
 
     def get_frontiers(self, current_navigable_pcd, real_boundary):
 
@@ -1452,12 +1618,12 @@ class Instruct_Mapper:
         return merged_frontier_clusters, merged_frontier_centers, line_set
 
     def change_state(self, node):
-        nodes_states = self.representation.get_nodes_states()
+        nodes_states = self.get_nodes_states()
         print(f'Node state before: {nodes_states}')
 
-        self.representation.visit_node(node)
+        self.visit_node(node)
 
-        nodes_states = self.representation.get_nodes_states()
+        nodes_states = self.get_nodes_states()
         print(f'Node state after: {nodes_states}')
         # node_idx = np.where((self.nodes == node).all(axis=1))[0]
         # print(f'Node index: {node_idx}')
@@ -1470,10 +1636,10 @@ class Instruct_Mapper:
         self.process_obs_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
         self.process_nav_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
 
-        return self.representation.find_closest_unexplored_node(self.current_position)
+        return self.find_closest_unexplored_node(self.current_position)
 
     def get_path(self, end):
-        return self.representation.find_the_closest_path(self.current_position, end)
+        return self.find_the_closest_path(self.current_position, end)
 
     # def choose_waypoint(self, candidate_nodes):
     #     node_idx = np.argmin(
@@ -1484,5 +1650,3 @@ class Instruct_Mapper:
     #     self.process_obs_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
     #
     #     return node
-
-

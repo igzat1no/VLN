@@ -1,17 +1,24 @@
 import numpy as np
-from enum import Enum
+from enum import IntEnum
 import heapq
 from scipy.spatial import KDTree
 
 
-class NodeState(Enum):
+class NodeState(IntEnum):
     UNEXPLORED = 0
     EXPLORED = 1
 
 
+class ObjectNode:
+    def __init__(self, pointcloud, tag, confidence):
+        self.pointcloud = pointcloud
+        self.tag = tag
+        self.confidence = confidence
+
+
 class our_Node:
     def __init__(self, rgb_img, depth_img, position, encoder, idx):
-        self.state = 0
+        self.state = NodeState.UNEXPLORED
         # self.rgb_imgs = [rgb_img]
         # self.depth_imgs = [depth_img]
         self.position = position
@@ -36,7 +43,7 @@ class our_Node:
         self.objects = list(set(self.objects))
 
     def upgrade(self, rgb_imgs, depth_imgs, encoder):
-        self.state = 1
+        self.state = NodeState.EXPLORED
         self.rgb_imgs = rgb_imgs
         self.depth_imgs = depth_imgs
         self.rgb_features = []
@@ -121,7 +128,7 @@ class our_Graph:
         for key, value in self.nodes_pos_to_idx.items():
             print(key, value)
         node_indx = self.nodes_pos_to_idx[tuple(node_pos)]
-        self.nodes[node_indx].state = 1
+        self.nodes[node_indx].state = NodeState.EXPLORED
 
     def update_edges(self, point_cloud_position, curren_pos):
         current_node = self.find_closest_node(curren_pos)

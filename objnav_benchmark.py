@@ -32,7 +32,8 @@ if __name__ == "__main__":
     habitat_mapper = Instruct_Mapper(habitat_camera_intrinsic(habitat_config),
                                     pcd_resolution=args.mapper_resolution,
                                     grid_resolution=args.path_resolution,
-                                    grid_size=args.path_scale)
+                                    grid_size=args.path_scale,
+                                    perceiver=args.image_perceiver)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper)
     evaluation_metrics = []
     for i in tqdm(range(args.eval_episodes)):

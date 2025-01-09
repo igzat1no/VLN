@@ -4,3 +4,7 @@ __pycache__/
 objnav_hm3d.csv
 *.jpg
 tmp*/
+debug/
+logs/
+cspell.json
+.vscode/
